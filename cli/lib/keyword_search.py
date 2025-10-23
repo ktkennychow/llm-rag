@@ -3,10 +3,11 @@
 from collections import Counter
 import math
 import os
-from pathlib import Path
 import pickle
 import string
 from nltk.stem import PorterStemmer
+
+from lib.search_utils import CACHE_DIR, STOPWORDS_PATH
 
 # =============================================================================
 # CONFIGURATION SETTINGS
@@ -15,9 +16,6 @@ from nltk.stem import PorterStemmer
 # BM25 scoring parameters
 BM25_K1 = 1.5
 BM25_B = 0.75
-
-# File paths
-root_path = Path(__file__).parent.parent
 
 
 # =============================================================================
@@ -54,7 +52,7 @@ def remove_empty_tokens(tokens: list[str]) -> list[str]:
 
 def remove_stop_words(tokens: list[str]) -> list[str]:
     """Remove common words that don't add meaning to search."""
-    with open(root_path / "data" / "stopwords.txt", "r") as f:
+    with open(STOPWORDS_PATH, "r") as f:
         stopwords_text = f.read()
 
     stopwords = stopwords_text.splitlines()
@@ -84,6 +82,10 @@ class InvertedIndex:
         self.term_frequencies: dict[int, Counter] = {}
         # Stores the length (word count) of each document
         self.doc_lengths: dict[int, int] = {}
+        self.index_path = os.path.join(CACHE_DIR, "index.pkl")
+        self.docmap_path = os.path.join(CACHE_DIR, "docmap.pkl")
+        self.tf_path = os.path.join(CACHE_DIR, "term_frequencies.pkl")
+        self.doc_lengths_path = os.path.join(CACHE_DIR, "doc_lengths.pkl")
 
     def __add_document(self, doc_id: int, text: str):
         """Add a document to the search index."""
@@ -191,46 +193,46 @@ class InvertedIndex:
 
     def save(self):
         """Save the search index to cache files."""
-        os.makedirs(root_path / "cache", exist_ok=True)
+        os.makedirs(CACHE_DIR, exist_ok=True)
 
         # Save each component of the index
-        with open(root_path / "cache" / "index.pkl", "wb") as f:
+        with open(self.index_path, "wb") as f:
             pickle.dump(self.index, f)
 
-        with open(root_path / "cache" / "docmap.pkl", "wb") as f:
+        with open(self.docmap_path, "wb") as f:
             pickle.dump(self.docmap, f)
 
-        with open(root_path / "cache" / "term_frequencies.pkl", "wb") as f:
+        with open(self.tf_path, "wb") as f:
             pickle.dump(self.term_frequencies, f)
 
-        with open(root_path / "cache" / "doc_lengths.pkl", "wb") as f:
+        with open(self.doc_lengths_path, "wb") as f:
             pickle.dump(self.doc_lengths, f)
 
     def load(self):
         """Load the search index from cache files."""
         # Load word-to-documents mapping
-        with open(root_path / "cache" / "index.pkl", "rb") as f:
+        with open(self.index_path, "rb") as f:
             stored_index = pickle.load(f)
             if stored_index is None:
                 raise FileNotFoundError("There is no stored index.")
             self.index = stored_index
 
         # Load document information
-        with open(root_path / "cache" / "docmap.pkl", "rb") as f:
+        with open(self.docmap_path, "rb") as f:
             stored_docmap = pickle.load(f)
             if stored_docmap is None:
                 raise FileNotFoundError("There is no stored docmap.")
             self.docmap = stored_docmap
 
         # Load term frequency counts
-        with open(root_path / "cache" / "term_frequencies.pkl", "rb") as f:
+        with open(self.tf_path, "rb") as f:
             stored_term_frequencies = pickle.load(f)
             if stored_term_frequencies is None:
                 raise FileNotFoundError("There is no stored term frequencies.")
             self.term_frequencies = stored_term_frequencies
 
         # Load document lengths
-        with open(root_path / "cache" / "doc_lengths.pkl", "rb") as f:
+        with open(self.doc_lengths_path, "rb") as f:
             stored_doc_lengths = pickle.load(f)
             if stored_doc_lengths is None:
                 raise FileNotFoundError("There is no stored doc lengths.")

@@ -2,10 +2,12 @@
 
 import argparse
 import json
-from pathlib import Path
+import os
 import sys
 
-from keyword_search import InvertedIndex, tokenize_str
+from lib.search_utils import DATA_PATH
+from lib.keyword_search import InvertedIndex, tokenize_str
+
 
 # =============================================================================
 # CONFIGURATION SETTINGS
@@ -18,9 +20,6 @@ BM25_B = 0.75
 # Search result limits
 DEFAULT_LIMIT = 5
 MAX_RESULTS = 5
-
-# File paths
-root_path = Path(__file__).parent.parent
 
 # =============================================================================
 # UTILITY FUNCTIONS
@@ -199,7 +198,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Load movies data
-    with open(root_path / "data" / "movies.json", "r") as f:
+    with open(DATA_PATH, "r") as f:
         movies_json = json.load(f)
     movies: list[dict[str, str]] = movies_json["movies"]
 
