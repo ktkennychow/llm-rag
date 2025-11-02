@@ -6,6 +6,17 @@ from sentence_transformers import SentenceTransformer
 from lib.search_utils import CACHE_DIR, DATA_PATH
 
 
+def cosine_similarity(vec1, vec2):
+    dot_product = np.dot(vec1, vec2)
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+
+    return dot_product / (norm1 * norm2)
+
+
 def verify_model() -> None:
     semantic_search = SemanticSearch()
     print(f"Model loaded: {str(semantic_search.model)}")
@@ -30,6 +41,14 @@ def verify_embeddings() -> None:
     print(
         f"Embeddings shape: {semantic_search.embeddings.shape[0]} vectors in {semantic_search.embeddings.shape[1]} dimensions"
     )
+
+
+def embed_query_text(query: str):
+    semantic_search = SemanticSearch()
+    embedding = semantic_search.generate_embedding(query)
+    print(f"Query: {query}")
+    print(f"First 5 dimensions: {embedding[:5]}")
+    print(f"Shape: {embedding.shape}")
 
 
 class SemanticSearch:
@@ -68,54 +87,24 @@ class SemanticSearch:
         encoded_text = self.model.encode([text])
         return encoded_text[0]
 
-
-# def add_vectors(vec1: list[float], vec2: list[float]) -> list[float]:
-#     if len(vec1) != len(vec2):
-#         raise ValueError("The lengths of the two vectors are not the same.")
-#     sum = []
-#     for i in range(len(vec1)):
-#         sum.append(vec1[i] + vec2[i])
-#     return sum
-
-
-# def subtract_vectors(vec1, vec2):
-#     if len(vec1) != len(vec2):
-#         raise ValueError("The lengths of the two vectors are not the same.")
-#     sub = []
-#     for i in range(len(vec1)):
-#         sub.append(vec1[i] - vec2[i])
-#     return sub
-
-
-# def dot(vec1, vec2):
-#     if len(vec1) != len(vec2):
-#         raise ValueError("vectors must be the same length")
-#     total = 0.0
-#     for i in range(len(vec1)):
-#         total += vec1[i] * vec2[i]
-#     return total
-
-
-# def euclidean_norm(vec):
-#     total = 0.0
-#     for x in vec:
-#         total += x**2
-
-#     return total**0.5
-
-
-# def cosine_similarity(vec1, vec2):
-#     if len(vec1) != len(vec2):
-#         raise ValueError("The lengths of the two vectors are not the same.")
-#     dots = []
-#     for i in range(len(vec1)):
-#         dots.append(vec1[i] * vec2[i])
-#     total = 0
-#     for d in dots:
-#         total += d
-
-#     mag1 = euclidean_norm(vec1)
-#     mag2 = euclidean_norm(vec2)
-#     if mag1 == 0 or mag2 == 0:
-#         return 0.0
-#     return total / (mag1 * mag2)
+    def search(self, query: str, limit: int) -> list[dict[str, str]]:
+        if self.embeddings is None:
+            raise ValueError(
+                "No embeddings loaded. Call `load_or_create_embeddings` first."
+            )
+        query_embedding = self.generate_embedding(query)
+        similarities: list[tuple[int, dict[str, str]]] = []
+        for doc_id, doc in self.document_map.items():
+            similarity = cosine_similarity(query_embedding, self.embeddings[doc_id - 1])
+            similarities.append((similarity, doc))
+        similarities.sort(key=lambda x: x[0], reverse=True)
+        top_results: list[dict[str, str]] = []
+        for similarity, doc in similarities[:limit]:
+            top_results.append(
+                {
+                    "score": similarity,
+                    "title": doc["title"],
+                    "description": doc["description"],
+                }
+            )
+        return top_results
